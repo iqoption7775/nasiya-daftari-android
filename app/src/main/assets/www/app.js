@@ -601,7 +601,7 @@ function renderBulk(){
     try { sims = JSON.parse(n.getSims ? n.getSims() : "[]") || []; } catch(e){}
     $("#bk-sim-wrap").hidden = sims.length < 2;
     if(sims.length >= 2 && !$("#bk-sim").options.length) $("#bk-sim").innerHTML = sims.map(function(s){ return '<option value="'+esc(s.id)+'">'+esc(s.name || ("SIM "+s.slot))+'</option>'; }).join("");
-    $("#bk-hint").textContent = "Birinchi marta telefon faqat «SMS yuborish»ga ruxsat so‘raydi: ilova xabarlaringiz, kontaktlaringiz va qo‘ng‘iroqlaringizni o‘qimaydi. SMS’lar orasida "+Math.round(CONFIG.smsDelayMs/1000)+" soniya pauza bo‘ladi, shunda operator ularni spam deb hisoblamaydi. Ilovani yopmang.";
+    $("#bk-hint").textContent = "Birinchi marta telefon SMS ruxsatini so‘raydi. Ilova faqat yuboradi: xabarlaringiz, kontaktlaringiz va qo‘ng‘iroqlaringizni o‘qimaydi. SMS’lar orasida "+Math.round(CONFIG.smsDelayMs/1000)+" soniya pauza bo‘ladi, shunda operator ularni spam deb hisoblamaydi. Ilovani yopmang.";
     foot.innerHTML = bulk.running ? '<span class="hint">Yuborilmoqda…</span>'
       : done === list.length && list.length ? '<span class="spacer"></span><button type="button" class="btn btn-primary" data-close>Tayyor</button>'
       : '<span class="spacer"></span><button type="button" class="btn btn-ghost" data-close>Bekor qilish</button><button type="button" class="btn btn-primary" id="bk-go"'+(list.length ? "" : " disabled")+'>Hammasiga yuborish ('+(list.length - done)+')</button>';

@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nasiya daftari</title>
+<meta name="description" content="Biznesingiz uchun raqamli nasiya daftari: bugungi, muddati o'tgan va muddati kelmagan qarzdorlar, umumiy summa va SMS eslatmalar.">
+<meta name="theme-color" content="#F2F4F9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1120" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Nasiya">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+.devcode{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 14px;border-radius:12px;background:var(--field)}
+.devcode b{font-family:var(--f-num);font-size:20px;letter-spacing:.08em}
+.step{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:start}
+.step>i{font-style:normal;width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:13px}
+.step>div{display:grid;gap:8px;min-width:0}
+#act-code{font-family:var(--f-num);font-size:13px;min-height:84px}
+.install-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:14px;background:var(--surface);border:1px solid var(--rule);font-size:13.5px;color:var(--ink-2)}
+.install-bar p{flex:1 1 220px;min-width:0}
+.install-bar b{color:var(--ink)}
+.smsbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:14px;background:var(--accent);color:var(--accent-ink)}
+.smsbar .ico{color:var(--accent-ink)}
+.smsbar p{flex:1 1 200px;min-width:0;display:grid;gap:1px}
+.smsbar p b{font-size:15px}
+.smsbar p span{font-size:13px;opacity:.85}
+.smsbar .btn{background:var(--accent-ink);color:var(--accent);border-color:transparent}
+.smsbar.done{background:var(--ok-soft);color:var(--ok)}
+.smsbar.done .ico{color:var(--ok)}
+.sched li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px}
+.sched .pill{min-height:20px;font-size:11.5px;padding:0 7px}
+.plan-line{font-size:13px;color:var(--ink-2)}
+.plan-line b{color:var(--ink);font-family:var(--f-num);font-weight:600}
+.sent-tag{display:inline-flex;align-items:center;gap:4px;color:var(--ok);font-weight:500}
+.sent-tag .ico{width:14px;height:14px}
+#bk-list li .msg{grid-column:1/-1;font-size:12.5px;color:var(--ink-2);overflow-wrap:anywhere}
+#bk-list li.cur{background:var(--accent-soft);border-radius:10px;padding:8px 10px;margin:0 -10px}
+</style>
+<script src="app.js" defer></script>
+</head>
+<body>
+
+<!-- ========== BIRINCHI KIRISH ========== -->
+<section class="auth" id="onboard" hidden>
+  <div class="auth-card">
+    <div class="brand">
+      <img src="icons/icon-192.png" alt="">
+      <div><h1>Nasiya daftari</h1><p>Biznesingiz uchun raqamli nasiya daftari</p></div>
+    </div>
+    <form class="auth-sheet auth-body" id="ob-form" novalidate>
+      <h2>Boshlash</h2>
+      <label class="field"><span>Biznes nomi</span><input id="ob-name" autocomplete="organization" placeholder="Masalan: Largo Tyre"></label>
+      <label class="field"><span>Telefon raqamingiz (ixtiyoriy)</span><input id="ob-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67"></label>
+      <p class="err" id="ob-err" hidden></p>
+      <button type="submit" class="btn btn-primary btn-block">Boshlash · 30 kun bepul</button>
+      <button type="button" class="linkish" id="ob-restore" style="justify-self:center">Eski telefondan zaxirani tiklash</button>
+    </form>
+    <div class="offer">
+      <ul>
+        <li><b>30 kun bepul</b>, keyin oyiga <b class="js-price">200&nbsp;000 so‘m</b></li>
+        <li>Bugun to‘lashi kerak, muddati o‘tgan va kelmagan qarzdorlar alohida</li>
+        <li>Qarzdorlarga tayyor matnli SMS bir bosishda</li>
+        <li>Ma’lumotlaringiz faqat shu telefonda saqlanadi, boshqa hech kim ko‘rmaydi</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ========== ASOSIY EKRAN ========== -->
+<main class="wrap" id="main" hidden>
+  <header class="top">
+    <div>
+      <h1 id="biz-name">Nasiya daftari</h1>
+      <p class="sub-line" id="sub-line"></p>
+    </div>
+    <div class="top-actions">
+      <button type="button" class="btn btn-primary add-top" data-act="new">+ Nasiya qo‘shish</button>
+      <button type="button" class="icon-btn" id="menu-btn" aria-label="Sozlamalar">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="banner"></div>
+  <div class="install-bar" id="install" hidden></div>
+
+  <section class="sheet" aria-label="Umumiy holat">
+    <div class="sheet-ruled">
+      <p class="sheet-date" id="today-label">&nbsp;</p>
+      <p class="sheet-label">Umumiy nasiya</p>
+      <p class="sheet-total" id="total"><span class="n">—</span></p>
+      <p class="sheet-extra" id="total-extra">&nbsp;</p>
+    </div>
+    <div class="tiles" id="tiles" role="tablist" aria-label="Bo‘limlar"></div>
+  </section>
+
+  <div class="notice" id="notice" hidden><p id="notice-text"></p></div>
+  <div class="alerts" id="alerts"></div>
+
+  <section style="display:grid;gap:12px">
+    <div class="list-head" id="list-head">
+      <div><h2 id="list-title">Nasiyalar</h2><p id="list-sub"></p></div>
+    </div>
+    <label class="search">
+      <span class="sr-only">Qidirish</span>
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Ism, telefon yoki izoh bo‘yicha qidirish" autocomplete="off">
+    </label>
+    <div class="list" id="list" role="tabpanel"></div>
+  </section>
+</main>
+
+<button type="button" class="btn btn-primary fab" id="fab" data-act="new" hidden>
+  <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nasiya qo‘shish
+</button>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<input type="file" id="imp-file" accept="application/json,.json" hidden>
+
+<!-- nasiya qo'shish / tahrirlash -->
+<dialog id="dlg-form" aria-labelledby="f-title">
+  <form id="form" novalidate>
+    <div class="dlg-head">
+      <h2 id="f-title">Yangi nasiya</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Yopish"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="dlg-body">
+      <label class="field"><span>Mijoz ismi *</span><input id="f-name" autocomplete="off" placeholder="Masalan: Aziz Karimov"></label>
+      <label class="field"><span>Telefon</span><input id="f-phone" type="tel" inputmode="tel" autocomplete="off" placeholder="+998 90 123 45 67"></label>
+      <div class="row-amt">
+        <label class="field"><span>Summa *</span><input id="f-amount" class="money-in" inputmode="numeric" autocomplete="off" placeholder="0"></label>
+        <fieldset class="seg">
+          <legend class="sr-only">Valyuta</legend>
+          <label><input type="radio" name="cur" id="cur-uzs" value="UZS" checked><span>so‘m</span></label>
+          <label><input type="radio" name="cur" id="cur-usd" value="USD"><span>$</span></label>
+        </fieldset>
+      </div>
+      <label class="field"><span>Nima uchun (SMS’da ko‘rinadi)</span><input id="f-note" autocomplete="off" maxlength="60" placeholder="Masalan: balon, telefon, muzlatkich"></label>
+      <label class="field"><span>Berilgan sana</span><input id="f-given" type="date"></label>
+      <label class="switch">
+        <input type="checkbox" id="f-plan"><span class="sw"></span>
+        <span class="sw-txt"><b>Bo‘lib to‘lash</b><small>Masalan: 300$ ni 6 oyda 50$ dan</small></span>
+      </label>
+      <div id="plan-box" style="display:grid;gap:12px" hidden>
+        <div class="row2">
+          <label class="field"><span>Necha marta</span><input id="f-count" class="money-in" inputmode="numeric" value="6"></label>
+          <label class="field"><span>Har</span><select id="f-every"><option value="month">oyda bir</option><option value="week">haftada bir</option></select></label>
+        </div>
+        <label class="field"><span>Birinchi to‘lov sanasi</span><input id="f-first" type="date"></label>
+        <div class="panel" id="plan-preview"></div>
+      </div>
+      <div id="due-box" style="display:grid;gap:12px">
+        <label class="field"><span>To‘lash sanasi *</span><input id="f-due" type="date"></label>
+        <div class="chips" id="due-chips" aria-label="To‘lash sanasini tez tanlash">
+          <button type="button" data-plus="7d">+7 kun</button>
+          <button type="button" data-plus="15d">+15 kun</button>
+          <button type="button" data-plus="1m">+1 oy</button>
+          <button type="button" data-plus="2m">+2 oy</button>
+          <button type="button" data-plus="3m">+3 oy</button>
+        </div>
+      </div>
+      <p class="err" id="f-err" hidden></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn btn-danger" id="f-del" hidden>O‘chirish</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-ghost" data-close>Bekor qilish</button>
+      <button type="submit" class="btn btn-primary">Saqlash</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- to'lov olish -->
+<dialog id="dlg-pay" aria-labelledby="p-title">
+  <form id="pay-form" novalidate>
+    <div class="dlg-head">
+      <h2 id="p-title">To‘lov olish</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Yopish"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="dlg-body">
+      <div class="panel" id="p-who"></div>
+      <label class="field"><span>To‘lov summasi</span><input id="p-amount" class="money-in" inputmode="numeric" autocomplete="off" placeholder="0"></label>
+      <div class="chips"><button type="button" id="p-due">Bugungi to‘lov</button><button type="button" id="p-full">To‘liq</button><button type="button" id="p-half">Yarmi</button></div>
+      <label class="field"><span>To‘lov sanasi</span><input id="p-date" type="date"></label>
+      <p class="err" id="p-err" hidden></p>
+    </div>
+    <div class="dlg-foot">
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-ghost" data-close>Bekor qilish</button>
+      <button type="submit" class="btn btn-primary">Qabul qilish</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- SMS eslatma (telefon orqali) -->
+<dialog id="dlg-rem" aria-labelledby="rm-title">
+  <div class="dlg-head">
+    <h2><span id="rm-title">SMS eslatma</span><span class="count" id="rm-count" hidden></span></h2>
+    <button type="button" class="icon-btn" data-close aria-label="Yopish"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div class="dlg-body">
+    <div class="panel"><b id="rm-name"></b><span class="num" id="rm-phone"></span></div>
+    <p class="hint" id="rm-nophone" hidden>Bu mijozning telefon raqami kiritilmagan. Matnni nusxalab, o‘zingiz yuboring.</p>
+    <label class="field"><span>Xabar matni</span><textarea id="rm-text" rows="4"></textarea></label>
+    <p class="hint">«SMS yuborish» telefoningizning SMS ilovasini tayyor matn bilan ochadi, faqat «Yuborish»ni bosasiz.</p>
+  </div>
+  <div class="dlg-foot">
+    <a class="btn btn-primary" id="rm-sms" href="#">SMS yuborish</a>
+    <button type="button" class="btn btn-ghost" id="rm-copy">Nusxalash</button>
+    <span class="spacer"></span>
+    <button type="button" class="btn btn-soft" id="rm-next" hidden>Keyingisi →</button>
+  </div>
+</dialog>
+
+<!-- sozlamalar -->
+<dialog id="dlg-menu" aria-labelledby="m-title">
+  <div class="dlg-head">
+    <h2 id="m-title">Sozlamalar</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Yopish"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div class="dlg-body menu-body">
+    <div class="menu-list">
+      <button type="button" class="menu-item" data-open="dlg-sub">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg>
+        <span><b>Obuna</b><small id="m-sub-s"></small></span>
+      </button>
+      <button type="button" class="menu-item" data-open="dlg-tpl">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>
+        <span><b>SMS matnlari</b><small>Har bir mijozga o‘z summasi bilan</small></span>
+      </button>
+      <button type="button" class="menu-item" data-open="dlg-biz">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-6h6v6"/></svg>
+        <span><b>Biznes ma’lumotlari</b><small id="m-biz-s"></small></span>
+      </button>
+      <button type="button" class="menu-item" id="m-export">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 19h14"/></svg>
+        <span><b>Zaxira nusxa olish</b><small id="m-last"></small></span>
+      </button>
+      <button type="button" class="menu-item" data-act="import">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 19h14"/></svg>
+        <span><b>Zaxiradan tiklash / import</b><small>Avval saqlangan .json fayldan</small></span>
+      </button>
+      <div class="confirm-box" id="imp-confirm" hidden>
+        <p id="imp-text"></p>
+        <div class="row"><button type="button" class="btn btn-sm btn-primary" id="imp-yes">Ha, qo‘shish</button><button type="button" class="btn btn-sm btn-ghost" id="imp-no">Bekor qilish</button></div>
+      </div>
+      <p class="err" id="imp-err" hidden></p>
+      <button type="button" class="menu-item" id="m-samples">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M9 8h6M9 12h4"/></svg>
+        <span><b id="m-samples-t">Namuna yozuvlarni ko‘rish</b><small id="m-samples-s">Ilova qanday ishlashini ko‘rsatadi</small></span>
+      </button>
+    </div>
+    <p class="hint" style="text-align:center">Ma’lumotlar faqat shu telefonda saqlanadi. Telefon almashsa yoki ilova o‘chirilsa yo‘qolmasligi uchun haftada bir zaxira oling.</p>
+  </div>
+</dialog>
+
+<!-- obuna -->
+<dialog id="dlg-sub" aria-labelledby="sb-title">
+  <div class="dlg-head">
+    <h2 id="sb-title">Obuna</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Yopish"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div class="dlg-body">
+    <div class="panel" id="sb-status"></div>
+    <div class="step"><i>1</i><div>
+      <b>Qurilma kodingiz</b>
+      <div class="devcode"><b id="sb-device"></b><button type="button" class="btn btn-sm" id="sb-copy-device">Nusxalash</button></div>
+    </div></div>
+    <div class="step"><i>2</i><div>
+      <b>To‘lov qiling va kodni yuboring</b>
+      <p class="hint" id="sb-pay"></p>
+      <a class="btn btn-soft" id="sb-tg" href="#" target="_blank" rel="noopener">Telegram orqali yozish</a>
+    </div></div>
+    <div class="step"><i>3</i><div>
+      <b>Faollashtirish kodini kiriting</b>
+      <textarea id="act-code" rows="3" placeholder="ND1.…" autocomplete="off" spellcheck="false"></textarea>
+      <p class="err" id="act-err" hidden></p>
+      <button type="button" class="btn btn-primary" id="act-go">Faollashtirish</button>
+    </div></div>
+  </div>
+</dialog>
+
+<!-- bugungi SMS'lar: hammasiga -->
+<dialog id="dlg-bulk" aria-labelledby="bk-title">
+  <div class="dlg-head">
+    <h2 id="bk-title">Bugungi SMS’lar</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Yopish"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div class="dlg-body">
+    <div class="panel" id="bk-sum"></div>
+    <label class="field" id="bk-sim-wrap" hidden><span>Qaysi SIM kartadan</span><select id="bk-sim"></select></label>
+    <div class="prog" id="bk-prog" hidden></div>
+    <ul class="log-list" id="bk-list"></ul>
+    <p class="hint" id="bk-hint"></p>
+  </div>
+  <div class="dlg-foot" id="bk-foot"></div>
+</dialog>
+
+<!-- SMS matnlari -->
+<dialog id="dlg-tpl" aria-labelledby="tp-title">
+  <div class="dlg-head">
+    <h2 id="tp-title">SMS matnlari</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Yopish"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <form class="dlg-body" id="tp-form" novalidate>
+    <div class="panel"><span>Matnga quyidagilarni qo‘ying, ular har bir mijoz uchun o‘zi to‘ldiriladi:</span>
+      <span><b class="num">{ism}</b> mijoz ismi · <b class="num">{nima}</b> nima uchun · <b class="num">{summa}</b> to‘lov summasi · <b class="num">{sana}</b> to‘lov kuni · <b class="num">{biznes}</b> biznes nomi (ixtiyoriy)</span></div>
+    <label class="field"><span>To‘lov kuni (bugun)</span><textarea id="tp-today" rows="3"></textarea><small class="hint" id="tp-today-c"></small></label>
+    <label class="field"><span>Kechikkan to‘lov (haftada bir)</span><textarea id="tp-late" rows="3"></textarea><small class="hint" id="tp-late-c"></small></label>
+    <label class="field"><span>Oldindan eslatma (qo‘lda yuborilganda)</span><textarea id="tp-soon" rows="3"></textarea><small class="hint" id="tp-soon-c"></small></label>
+    <div class="panel"><span>Namuna:</span><p class="pre" id="tp-example"></p></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="submit" class="btn btn-primary">Saqlash</button>
+      <button type="button" class="btn btn-ghost" id="tp-reset">Standart matnlar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- biznes -->
+<dialog id="dlg-biz" aria-labelledby="bz-title">
+  <div class="dlg-head">
+    <h2 id="bz-title">Biznes ma’lumotlari</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Yopish"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <form class="dlg-body" id="bz-form" novalidate>
+    <label class="field"><span>Biznes nomi</span><input id="bz-name" autocomplete="organization"></label>
+    <label class="field"><span>Telefon raqamingiz</span><input id="bz-phone" type="tel" inputmode="tel" autocomplete="tel"></label>
+    <p class="hint">Biznes nomi ilovaning tepasida ko‘rinadi. SMS matniga qo‘shmoqchi bo‘lsangiz, «SMS matnlari» bo‘limida {biznes} deb yozing.</p>
+    <p class="err" id="bz-err" hidden></p>
+    <button type="submit" class="btn btn-primary">Saqlash</button>
+  </form>
+</dialog>
+
+</body>
+</html>

@@ -19,8 +19,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
 import android.telephony.SmsManager;
-import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -229,11 +229,27 @@ public class MainActivity extends Activity {
         return checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED;
     }
 
+    /** Ilova so'raydigan yagona ruxsat: SMS yuborish. SMS o'qish, kontaktlar yoki qo'ng'iroqlarga ruxsat so'ralmaydi. */
     private void requestSmsPermissions() {
-        List<String> need = new ArrayList<>();
-        if (!granted(Manifest.permission.SEND_SMS)) need.add(Manifest.permission.SEND_SMS);
-        if (!granted(Manifest.permission.READ_PHONE_STATE)) need.add(Manifest.permission.READ_PHONE_STATE);
-        if (!need.isEmpty()) requestPermissions(need.toArray(new String[0]), REQ_PERMS);
+        if (!granted(Manifest.permission.SEND_SMS)) {
+            requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQ_PERMS);
+        }
+    }
+
+    /** Slot raqami bo'yicha SIM obuna ID si. Telefon holatini o'qish ruxsatini talab qilmaydi. */
+    private int subIdForSlot(int slot) {
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                int id = SubscriptionManager.getSubscriptionId(slot);
+                return SubscriptionManager.isValidSubscriptionId(id) ? id : -1;
+            }
+            if (Build.VERSION.SDK_INT >= 29) {
+                SubscriptionManager sm = getSystemService(SubscriptionManager.class);
+                int[] ids = sm == null ? null : sm.getSubscriptionIds(slot);
+                if (ids != null && ids.length > 0 && SubscriptionManager.isValidSubscriptionId(ids[0])) return ids[0];
+            }
+        } catch (Exception ignored) { }
+        return -1;
     }
 
     @Override
@@ -442,27 +458,28 @@ public class MainActivity extends Activity {
     private class Bridge {
         @JavascriptInterface
         public String getSims() {
+            // Ikki SIM'li telefonda tanlash uchun ro'yxat. Hech qanday ruxsat so'ramaydi:
+            // slot, obuna ID va operator nomi ruxsatsiz ochiq ma'lumotlardan olinadi.
             JSONArray arr = new JSONArray();
-            if (!granted(Manifest.permission.SEND_SMS) || !granted(Manifest.permission.READ_PHONE_STATE)) {
-                ui.post(MainActivity.this::requestSmsPermissions);
-                return arr.toString();
-            }
             try {
-                SubscriptionManager sm = getSystemService(SubscriptionManager.class);
-                List<SubscriptionInfo> list = sm == null ? null : sm.getActiveSubscriptionInfoList();
-                if (list != null) {
-                    for (SubscriptionInfo info : list) {
-                        JSONObject o = new JSONObject();
-                        int slot = info.getSimSlotIndex() + 1;
-                        CharSequence carrier = info.getCarrierName();
-                        o.put("id", String.valueOf(info.getSubscriptionId()));
-                        o.put("slot", slot);
-                        o.put("name", "SIM " + slot + (carrier != null && carrier.length() > 0 ? " · " + carrier : ""));
-                        arr.put(o);
-                    }
+                TelephonyManager tm = getSystemService(TelephonyManager.class);
+                if (tm == null) return "[]";
+                int slots = Build.VERSION.SDK_INT >= 30 ? tm.getActiveModemCount() : tm.getPhoneCount();
+                if (slots < 2) return "[]";
+                for (int s = 0; s < slots; s++) {
+                    if (Build.VERSION.SDK_INT >= 26 && tm.getSimState(s) != TelephonyManager.SIM_STATE_READY) continue;
+                    int subId = subIdForSlot(s);
+                    if (subId < 0) continue;
+                    String carrier = null;
+                    try { carrier = tm.createForSubscriptionId(subId).getSimOperatorName(); } catch (Exception ignored) { }
+                    JSONObject o = new JSONObject();
+                    o.put("id", String.valueOf(subId));
+                    o.put("slot", s + 1);
+                    o.put("name", "SIM " + (s + 1) + (carrier != null && !carrier.trim().isEmpty() ? " · " + carrier.trim() : ""));
+                    arr.put(o);
                 }
-            } catch (SecurityException | JSONException ignored) { }
-            return arr.toString();
+            } catch (Exception ignored) { }
+            return arr.length() < 2 ? "[]" : arr.toString();
         }
 
         @JavascriptInterface

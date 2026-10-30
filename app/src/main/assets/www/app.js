@@ -5,7 +5,7 @@
 "use strict";
 
 /* ===== SOZLAMALAR — kerak bo'lsa shu yerni o'zgartiring ===== */
-var APP_VERSION = "2026-10-30-4"; // yangilashda version.json bilan birga o'zgartiriladi
+var APP_VERSION = "2026-10-30-5"; // yangilashda version.json bilan birga o'zgartiriladi
 var CONFIG = {
   price: 200000,             // oylik obuna narxi, so'mda
   trialDays: 30,
@@ -601,13 +601,14 @@ function renderBulk(){
     try { sims = JSON.parse(n.getSims ? n.getSims() : "[]") || []; } catch(e){}
     $("#bk-sim-wrap").hidden = sims.length < 2;
     if(sims.length >= 2 && !$("#bk-sim").options.length) $("#bk-sim").innerHTML = sims.map(function(s){ return '<option value="'+esc(s.id)+'">'+esc(s.name || ("SIM "+s.slot))+'</option>'; }).join("");
-    $("#bk-hint").textContent = "SMS’lar orasida "+Math.round(CONFIG.smsDelayMs/1000)+" soniya pauza bo‘ladi, shunda operator ularni spam deb hisoblamaydi. Ilovani yopmang.";
+    $("#bk-hint").textContent = "Birinchi marta telefon faqat «SMS yuborish»ga ruxsat so‘raydi: ilova xabarlaringiz, kontaktlaringiz va qo‘ng‘iroqlaringizni o‘qimaydi. SMS’lar orasida "+Math.round(CONFIG.smsDelayMs/1000)+" soniya pauza bo‘ladi, shunda operator ularni spam deb hisoblamaydi. Ilovani yopmang.";
     foot.innerHTML = bulk.running ? '<span class="hint">Yuborilmoqda…</span>'
       : done === list.length && list.length ? '<span class="spacer"></span><button type="button" class="btn btn-primary" data-close>Tayyor</button>'
       : '<span class="spacer"></span><button type="button" class="btn btn-ghost" data-close>Bekor qilish</button><button type="button" class="btn btn-primary" id="bk-go"'+(list.length ? "" : " disabled")+'>Hammasiga yuborish ('+(list.length - done)+')</button>';
   } else {
     $("#bk-sim-wrap").hidden = true;
-    $("#bk-hint").textContent = "Brauzer va iPhone xavfsizlik sababli SMS’ni o‘zi yubora olmaydi: har biri uchun SMS ilovasida «Yuborish»ni bosasiz. Android ilovasida bitta tugma bilan hammasiga ketadi.";
+    $("#bk-hint").innerHTML = "Brauzer va iPhone xavfsizlik sababli SMS’ni o‘zi yubora olmaydi: har biri uchun SMS ilovasida «Yuborish»ni bosasiz. "
+      + (isAndroid() ? '<a href="android.html">Android ilovasida</a> bitta tugma bilan hammasiga ketadi.' : "Android ilovasida bitta tugma bilan hammasiga ketadi.");
     var it = list[bulk.idx];
     foot.innerHTML = !list.length ? '<span class="spacer"></span><button type="button" class="btn btn-primary" data-close>Yopish</button>'
       : bulk.idx >= list.length ? '<span class="spacer"></span><button type="button" class="btn btn-primary" data-close>Tayyor</button>'
@@ -851,10 +852,20 @@ $("#m-samples").addEventListener("click", function(){
 var deferredPrompt = null;
 function isStandalone(){ return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true || !!window.NasiyaNative; }
 function isIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); }
+function isAndroid(){ return /android/i.test(navigator.userAgent) && !window.NasiyaNative; }
+// Android ilovasining o'zida yuklab olish havolalari kerak emas.
+if(window.NasiyaNative) Array.prototype.forEach.call(document.querySelectorAll(".js-android"), function(el){ el.hidden = true; });
 function renderInstall(){
   var el = $("#install");
-  if(isStandalone() || meta.installDismissed || $("#main").hidden){ el.hidden = true; return; }
+  if(window.NasiyaNative || $("#main").hidden){ el.hidden = true; return; }
   var x = '<button type="button" class="icon-btn" id="inst-x" aria-label="Yopish"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>';
+  if(isAndroid() && !meta.apkDismissed){
+    el.dataset.kind = "apk";
+    el.innerHTML = '<p><b>Android ilovasi.</b> SMS’lar bitta tugma bilan hammaga o‘z SIM kartangizdan ketadi. Faqat SMS yuborish ruxsati.</p><a class="btn btn-sm btn-primary" href="android.html">Yuklab olish</a>'+x;
+    el.hidden = false; return;
+  }
+  el.dataset.kind = "pwa";
+  if(isStandalone() || meta.installDismissed){ el.hidden = true; return; }
   if(deferredPrompt){ el.innerHTML = '<p><b>Ilovani o‘rnating.</b> Telefon ekranida alohida belgi bilan turadi va internetsiz ham ochiladi.</p><button type="button" class="btn btn-sm btn-primary" id="inst-go">O‘rnatish</button>'+x; el.hidden = false; }
   else if(isIOS()){ el.innerHTML = '<p><b>Ekranga qo‘shing.</b> Safari’da pastdagi «Ulashish» tugmasini, keyin «Ekranga qo‘shish» (Add to Home Screen) ni bosing.</p>'+x; el.hidden = false; }
   else el.hidden = true;
@@ -862,7 +873,7 @@ function renderInstall(){
 window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); deferredPrompt = e; renderInstall(); });
 window.addEventListener("appinstalled", function(){ deferredPrompt = null; renderInstall(); toast("Ilova o‘rnatildi"); });
 $("#install").addEventListener("click", function(e){
-  if(e.target.closest("#inst-x")){ meta.installDismissed = true; saveMeta(); renderInstall(); return; }
+  if(e.target.closest("#inst-x")){ if(this.dataset.kind === "apk") meta.apkDismissed = true; else meta.installDismissed = true; saveMeta(); renderInstall(); return; }
   if(e.target.closest("#inst-go") && deferredPrompt){ deferredPrompt.prompt(); deferredPrompt.userChoice.then(function(){ deferredPrompt = null; renderInstall(); }, noop); }
 });
 

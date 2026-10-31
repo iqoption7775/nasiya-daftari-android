@@ -5,7 +5,7 @@
 "use strict";
 
 /* ===== SOZLAMALAR — kerak bo'lsa shu yerni o'zgartiring ===== */
-var APP_VERSION = "2026-10-31-3"; // yangilashda version.json bilan birga o'zgartiriladi
+var APP_VERSION = "2026-10-31-4"; // yangilashda version.json bilan birga o'zgartiriladi
 var CONFIG = {
   price: 200000,             // oylik obuna narxi, so'mda
   usdRate: 12023,            // dollar kursi (Markaziy bank, 31.10.2026), internet bo'lmasa shu ishlatiladi
@@ -325,9 +325,10 @@ function needBackup(){
 }
 function renderSheet(g){
   var open = g.today.concat(g.late, g.soon);
-  var e = entries(sumBy(open, remOf)), p = moneyParts(e[0][1], e[0][0]);
-  setHTML($("#total"), '<span class="n">'+esc(p.n)+'</span>'+(p.c ? '<span class="c">'+p.c+'</span>' : ""));
-  setHTML($("#total-extra"), e.slice(1).map(function(x){ return '<span class="num">+ '+esc(money(x[1], x[0]))+'</span>'; }).join("") + '<span>'+open.length+' ta ochiq nasiya</span>');
+  // Umumiy nasiya bitta summa, so'mda: dollardagi qarzlar kurs bo'yicha qo'shiladi.
+  var m = sumBy(open, remOf), p = moneyParts(toUZS(m), "UZS");
+  setHTML($("#total"), '<span class="n">'+esc(p.n)+'</span><span class="c">'+p.c+'</span>');
+  setHTML($("#total-extra"), (m.USD > 0 ? '<span>shundan <b class="num">'+esc(money(m.USD, "USD"))+'</b> · '+esc(rateText())+'</span>' : "") + '<span>'+open.length+' ta ochiq nasiya</span>');
   setHTML($("#tiles"), TABS.map(function(t){
     var arr = g[t.id];
     var m = sumBy(arr, tabSum(t.id));

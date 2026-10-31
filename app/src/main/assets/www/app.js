@@ -5,9 +5,10 @@
 "use strict";
 
 /* ===== SOZLAMALAR — kerak bo'lsa shu yerni o'zgartiring ===== */
-var APP_VERSION = "2026-10-30-5"; // yangilashda version.json bilan birga o'zgartiriladi
+var APP_VERSION = "2026-10-31-1"; // yangilashda version.json bilan birga o'zgartiriladi
 var CONFIG = {
   price: 200000,             // oylik obuna narxi, so'mda
+  usdRate: 12023,            // dollar kursi (Markaziy bank, 31.10.2026), internet bo'lmasa shu ishlatiladi
   trialDays: 30,
   telegram: "Abdu_invest",
   paymentText: "Oylik obuna 200 000 so‘m. To‘lov karta yoki Payme/Click orqali. Telegram'ga yozing: qurilma kodingizni yuboring, to‘lovdan so‘ng faollashtirish kodini olasiz.",
@@ -136,6 +137,21 @@ function compute(){
 function sumBy(arr, fn){ var m = {UZS:0, USD:0}; arr.forEach(function(it){ m[curOf(it)] += fn(it); }); return m; }
 function entries(m){ var e = []; if(m.UZS > 0) e.push(["UZS", m.UZS]); if(m.USD > 0) e.push(["USD", m.USD]); return e.length ? e : [["UZS", 0]]; }
 function moneyLine(m){ return entries(m).map(function(x){ return money(x[1], x[0]); }).join(" + "); }
+/* Dollar kursi: biznes o'zi yozgan kurs, bo'lmasa Markaziy bank kursi (har kuni yangilanadi). */
+function usdRate(){ var u = meta.usd; return u && u.rate > 0 ? u.rate : CONFIG.usdRate; }
+function rateText(){ return "1$ = "+grp(usdRate())+" so‘m"; }
+function toUZS(m){ return Math.round((m.UZS || 0) + (m.USD || 0) * usdRate()); }
+function parseRate(v){ var t = String(v || "").replace(/\s/g, ""), x = t.match(/^(\d+)(?:[.,](\d+))?$/); return x ? Number(x[1]+"."+(x[2] || "0")) : 0; }
+function refreshRate(){
+  if(!window.fetch || (meta.usd && (meta.usd.src === "manual" || meta.usd.date === state.today))) return;
+  var ctl = window.AbortController ? new AbortController() : null;
+  if(ctl) setTimeout(function(){ ctl.abort(); }, 8000);
+  fetch("https://cbu.uz/uz/arkhiv-kursov-valyut/json/USD/", ctl ? {signal:ctl.signal} : {}).then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
+    var rate = j && j[0] ? parseRate(j[0].Rate) : 0;
+    if(!(rate > 1000 && rate < 100000) || (meta.usd && meta.usd.src === "manual")) return;
+    meta.usd = {rate:rate, date:state.today, src:"cbu"}; saveMeta(); render();
+  }).catch(noop);
+}
 function tabSum(id){ return id === "closed" ? amtOf : (id === "soon" ? remOf : dueAmt); }
 function find(id){ return state.items.filter(function(x){ return x.id === id; })[0]; }
 
@@ -290,7 +306,10 @@ function renderSheet(g){
   setHTML($("#total-extra"), e.slice(1).map(function(x){ return '<span class="num">+ '+esc(money(x[1], x[0]))+'</span>'; }).join("") + '<span>'+open.length+' ta ochiq nasiya</span>');
   setHTML($("#tiles"), TABS.map(function(t){
     var arr = g[t.id];
-    var sums = entries(sumBy(arr, tabSum(t.id))).map(function(x){ return '<span>'+esc(money(x[1], x[0]))+'</span>'; }).join("");
+    var m = sumBy(arr, tabSum(t.id));
+    var sums = t.id === "closed"
+      ? '<span>'+esc(money(toUZS(m), "UZS"))+'</span>'+(m.USD > 0 ? '<span class="tile-rate">'+esc(rateText())+'</span>' : "")
+      : entries(m).map(function(x){ return '<span>'+esc(money(x[1], x[0]))+'</span>'; }).join("");
     return '<button type="button" class="tile tile-'+t.id+'" role="tab" aria-selected="'+(state.tab === t.id)+'" aria-controls="list" data-tab="'+t.id+'">'
       + '<span class="tile-label"><i class="dot"></i>'+t.label+'</span><span class="tile-count">'+arr.length+'<small> ta</small></span>'
       + '<span class="tile-sum">'+sums+'</span></button>';
@@ -372,7 +391,8 @@ function renderList(g){
     arr = arr.filter(function(it){ return String(it.name||"").toLowerCase().indexOf(q) > -1 || String(it.note||"").toLowerCase().indexOf(q) > -1 || (qd.length >= 3 && String(it.phone||"").replace(/\D/g,"").indexOf(qd) > -1); });
   }
   $("#list-title").textContent = tab.title;
-  $("#list-sub").textContent = arr.length+" ta · "+moneyLine(sumBy(arr, tabSum(tab.id)));
+  var lm = sumBy(arr, tabSum(tab.id));
+  $("#list-sub").textContent = arr.length+" ta · "+(tab.id === "closed" ? money(toUZS(lm), "UZS")+(lm.USD > 0 ? " (dollarlar "+rateText()+" kursida)" : "") : moneyLine(lm));
   var html;
   if(!state.items.length) html = '<div class="empty">'+ICON.book+'<p><b>Hali nasiya yozilmagan</b></p><p>Birinchi mijozni qo‘shing: ism, summa va to‘lash sanasi yetarli. Bo‘lib to‘lash ham mumkin.</p>'
     + (canWrite() ? '<div class="empty-actions"><button type="button" class="btn btn-primary" data-act="new">+ Nasiya qo‘shish</button><button type="button" class="btn btn-ghost" data-act="samples">Namunani ko‘rish</button></div>' : '')+'</div>';
@@ -721,12 +741,23 @@ $("#act-go").addEventListener("click", function(){
 });
 
 /* ---------- biznes ---------- */
-function renderBizDlg(){ $("#bz-name").value = meta.business || ""; $("#bz-phone").value = meta.phone || ""; showErr("#bz-err", ""); }
+function renderBizDlg(){
+  $("#bz-name").value = meta.business || ""; $("#bz-phone").value = meta.phone || "";
+  var manual = meta.usd && meta.usd.src === "manual";
+  $("#bz-rate").value = manual ? String(meta.usd.rate) : "";
+  $("#bz-rate").placeholder = "Markaziy bank: "+grp(manual ? CONFIG.usdRate : usdRate());
+  showErr("#bz-err", "");
+}
 $("#bz-form").addEventListener("submit", function(e){
   e.preventDefault();
   var n = $("#bz-name").value.trim(), p = $("#bz-phone").value.trim();
   if(!n) return showErr("#bz-err", "Biznes nomini kiriting.");
-  meta.business = n.slice(0, 80); meta.phone = p.slice(0, 40); saveMeta(); render(); closeDlg($("#dlg-biz")); toast("Saqlandi");
+  var rv = $("#bz-rate").value.trim(), rate = parseRate(rv);
+  if(rv && !(rate >= 1000 && rate <= 100000)) return showErr("#bz-err", "Dollar kursini so‘mda yozing, masalan 12 050.");
+  meta.business = n.slice(0, 80); meta.phone = p.slice(0, 40);
+  if(rv) meta.usd = {rate:rate, date:state.today, src:"manual"};
+  else if(meta.usd && meta.usd.src === "manual"){ delete meta.usd; refreshRate(); }
+  saveMeta(); render(); closeDlg($("#dlg-biz")); toast("Saqlandi");
 });
 
 /* ---------- sozlamalar ---------- */
@@ -916,7 +947,7 @@ $("#list").addEventListener("toggle", function(e){
   if(d && d.matches && d.matches("details[data-id]")){ if(d.open) state.openHist.add(d.dataset.id); else state.openHist.delete(d.dataset.id); }
 }, true);
 $("#q").addEventListener("input", function(){ state.q = this.value; renderList(compute()); });
-function checkDay(){ var t = todayISO(); if(t !== state.today){ state.today = t; ensureMeta(); render(); } }
+function checkDay(){ var t = todayISO(); if(t !== state.today){ state.today = t; ensureMeta(); render(); refreshRate(); } }
 setInterval(checkDay, 60000);
 document.addEventListener("visibilitychange", function(){ if(document.visibilityState === "visible") checkDay(); });
 window.addEventListener("storage", function(e){ if(e.key === DATA_KEY){ state.items = loadItems(); render(); } });
@@ -930,6 +961,7 @@ state.items = loadItems();
 state.tab = pickTab();
 if(meta.business){ showMain(); render(); }
 else { $("#onboard").hidden = false; }
+refreshRate();
 if(!state.storageOk){ $("#notice-text").textContent = "Bu brauzer ma’lumotlarni saqlashga ruxsat bermayapti (yashirin rejim bo‘lishi mumkin). Oddiy rejimda oching."; $("#notice").hidden = false; }
 if("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost") && !window.NasiyaNative){
   window.addEventListener("load", function(){ navigator.serviceWorker.register("sw.js").catch(noop); });

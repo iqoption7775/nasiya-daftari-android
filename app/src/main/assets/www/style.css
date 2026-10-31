@@ -292,3 +292,11 @@ dialog form{display:block}
 .resend{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--ink-2)}
 
 @media (prefers-reduced-motion:reduce){.bell,.toast.show{animation:none}.switch .sw,.switch .sw::after{transition:none}}
+
+/* lotin / kirill almashtirgich */
+.script-sw{display:inline-flex;gap:2px;padding:3px;border-radius:12px;background:var(--field);border:1px solid var(--rule);flex:none;margin-left:auto}
+.script-sw button{min-height:36px;padding:0 12px;border:0;border-radius:9px;background:transparent;color:var(--ink-2);font:600 13px/1 var(--f-ui);cursor:pointer}
+.script-sw button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(26,32,64,.14)}
+.brand{flex-wrap:wrap}
+.script-row{cursor:default}
+.script-row:hover{border-color:var(--rule)}

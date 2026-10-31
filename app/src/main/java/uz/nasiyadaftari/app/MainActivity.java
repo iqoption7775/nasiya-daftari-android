@@ -10,7 +10,9 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -453,6 +455,61 @@ public class MainActivity extends Activity {
         return "Download/Nasiya/" + safe;
     }
 
+    /* ---------------- avto-zaxira ---------------- */
+
+    private static final String AUTO_NAME = "Nasiya-avtozaxira.json";
+
+    private SharedPreferences prefs() {
+        return getSharedPreferences("nasiya", MODE_PRIVATE);
+    }
+
+    /**
+     * Zaxirani Download/Nasiya/Nasiya-avtozaxira.json ga yozadi (har safar ustidan).
+     * Fayl umumiy "Download" papkasida, shuning uchun ilova o'chirilsa ham telefonda qoladi.
+     * Android 10+ da ruxsat kerak emas. Qaytaradi: fayl URI (yoki eski Android'da null).
+     */
+    private synchronized Uri writeAutoBackup(String content) throws IOException {
+        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+        if (Build.VERSION.SDK_INT >= 29) {
+            ContentResolver cr = getContentResolver();
+            String saved = prefs().getString("autoUri", null);
+            if (saved != null) {
+                Uri old = Uri.parse(saved);
+                try (OutputStream out = cr.openOutputStream(old, "wt")) {
+                    if (out != null) { out.write(bytes); return old; }
+                } catch (Exception ignored) { }
+            }
+            ContentValues v = new ContentValues();
+            v.put(MediaStore.MediaColumns.DISPLAY_NAME, AUTO_NAME);
+            v.put(MediaStore.MediaColumns.MIME_TYPE, "application/json");
+            v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Nasiya");
+            Uri uri = cr.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+            if (uri == null) throw new IOException("insert");
+            try (OutputStream out = cr.openOutputStream(uri, "wt")) {
+                if (out == null) throw new IOException("open");
+                out.write(bytes);
+            }
+            prefs().edit().putString("autoUri", uri.toString()).apply();
+            return uri;
+        }
+        if (!granted(Manifest.permission.WRITE_EXTERNAL_STORAGE)) return null;
+        File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Nasiya");
+        if (!dir.exists() && !dir.mkdirs()) throw new IOException("mkdir");
+        File f = new File(dir, AUTO_NAME);
+        try (FileOutputStream out = new FileOutputStream(f, false)) {
+            out.write(bytes);
+        }
+        return Uri.fromFile(f);
+    }
+
+    private String displayName(Uri uri) {
+        if (!"content".equals(uri.getScheme())) return uri.getLastPathSegment();
+        try (Cursor c = getContentResolver().query(uri, new String[]{MediaStore.MediaColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst()) return c.getString(0);
+        } catch (Exception ignored) { }
+        return AUTO_NAME;
+    }
+
     /* ---------------- JavaScript ko'prigi ---------------- */
 
     private class Bridge {
@@ -489,6 +546,42 @@ public class MainActivity extends Activity {
             } else {
                 pendingSmsJson = json;
                 ui.post(MainActivity.this::requestSmsPermissions);
+            }
+        }
+
+        /** Har o'zgarishdan keyin chaqiriladi. Qaytaradi: "Download/Nasiya/<fayl>" yoki null. */
+        @JavascriptInterface
+        public String autoBackup(String content) {
+            try {
+                Uri uri = writeAutoBackup(content);
+                return uri == null ? null : "Download/Nasiya/" + displayName(uri);
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        /** Zaxira faylini Telegram yoki boshqa ilovaga yuborish oynasini ochadi (Android 10+). */
+        @JavascriptInterface
+        public boolean shareBackup(String content) {
+            if (Build.VERSION.SDK_INT < 29) return false;
+            try {
+                final Uri uri = writeAutoBackup(content);
+                if (uri == null) return false;
+                ui.post(() -> {
+                    Intent send = new Intent(Intent.ACTION_SEND);
+                    send.setType("application/json");
+                    send.putExtra(Intent.EXTRA_STREAM, uri);
+                    send.putExtra(Intent.EXTRA_TEXT, "Nasiya daftari zaxirasi");
+                    send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    try {
+                        startActivity(Intent.createChooser(send, "Zaxirani yuborish"));
+                    } catch (ActivityNotFoundException e) {
+                        Toast.makeText(MainActivity.this, "Yuborish uchun ilova topilmadi", Toast.LENGTH_SHORT).show();
+                    }
+                });
+                return true;
+            } catch (Exception e) {
+                return false;
             }
         }
 

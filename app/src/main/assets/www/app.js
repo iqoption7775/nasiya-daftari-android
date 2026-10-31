@@ -5,7 +5,7 @@
 "use strict";
 
 /* ===== SOZLAMALAR — kerak bo'lsa shu yerni o'zgartiring ===== */
-var APP_VERSION = "2026-10-31-1"; // yangilashda version.json bilan birga o'zgartiriladi
+var APP_VERSION = "2026-10-31-2"; // yangilashda version.json bilan birga o'zgartiriladi
 var CONFIG = {
   price: 200000,             // oylik obuna narxi, so'mda
   usdRate: 12023,            // dollar kursi (Markaziy bank, 31.10.2026), internet bo'lmasa shu ishlatiladi
@@ -40,6 +40,7 @@ var ICON = {
   bell:'<svg class="ico bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
   clock:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   book:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/><path d="M9 8h6"/></svg>',
+  call:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3.5l1.8 4.4-2.3 1.4a11 11 0 0 0 6.2 6.2l1.4-2.3L20 15.5V19a1.5 1.5 0 0 1-1.6 1.5A16.5 16.5 0 0 1 3.5 5.6 1.5 1.5 0 0 1 5 4z"/></svg>',
   sms:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"/></svg>',
   check:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>'
 };
@@ -206,6 +207,7 @@ function todaysSms(){
 function loadItems(){ try { var v = JSON.parse(localStorage.getItem(DATA_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch(e){ return []; } }
 function saveItems(){
   try { localStorage.setItem(DATA_KEY, JSON.stringify(state.items)); state.storageOk = true; } catch(e){ state.storageOk = false; }
+  scheduleAutoBackup();
   try { if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(noop); } catch(e){}
 }
 function loadMeta(){ try { meta = JSON.parse(localStorage.getItem(META_KEY) || "{}") || {}; } catch(e){ meta = {}; } }
@@ -219,6 +221,20 @@ function makeDeviceId(){
   try { crypto.getRandomValues(a); } catch(e){ for(var j=0;j<8;j++) a[j] = Math.floor(Math.random()*256); }
   for(var i=0;i<8;i++) s += B32[a[i] % B32.length];
   return s.slice(0,4)+"-"+s.slice(4);
+}
+/* Avto-zaxira (Android ilovasi): har o'zgarishdan keyin Yuklamalar/Nasiya papkasiga yoziladi.
+   Ilova o'chirilsa ham bu fayl telefonda qoladi va undan qayta tiklash mumkin. */
+var autoTimer = null;
+function scheduleAutoBackup(){
+  var nn = window.NasiyaNative;
+  if(!nn || typeof nn.autoBackup !== "function") return;
+  clearTimeout(autoTimer);
+  autoTimer = setTimeout(function(){
+    if(!state.items.some(function(i){ return !i.sample; })) return;
+    var where = null;
+    try { where = nn.autoBackup(backupJson()); } catch(e){}
+    if(where){ var d = new Date(); meta.autoBackup = { at:todayISO()+"T"+pad(d.getHours())+":"+pad(d.getMinutes()), where:where }; saveMeta(); }
+  }, 1500);
 }
 function ensureMeta(){
   var changed = false;
@@ -297,7 +313,15 @@ function renderBanner(){
   if(s.status === "expired") html = '<div class="banner banner-bad"><p><b>Obuna muddati tugagan.</b> Ma’lumotlaringiz saqlangan va ko‘rinib turibdi, lekin yangi yozuv qo‘shib bo‘lmaydi va SMS yuborilmaydi.</p>'+pay+'</div>';
   else if(s.status === "trial" && s.daysLeft <= 7) html = '<div class="banner banner-warn"><p><b>Bepul sinov '+s.daysLeft+' kundan keyin tugaydi.</b> Ishni to‘xtatmaslik uchun obunani oldindan faollashtiring.</p>'+pay+'</div>';
   else if(s.status === "active" && s.daysLeft <= 5) html = '<div class="banner banner-warn"><p><b>Obuna '+s.daysLeft+' kundan keyin tugaydi.</b> Keyingi oyni oldindan to‘lab qo‘ying.</p>'+pay+'</div>';
+  else if(needBackup()) html = '<div class="banner banner-warn"><p><b>Zaxira nusxani yuborib qo‘ying.</b> Ma’lumotlar faqat shu telefonda. Telefon yo‘qolsa yoki ilova o‘chirilsa, zaxiradan qayta tiklaysiz.</p>'
+    + '<button type="button" class="btn btn-sm btn-primary" data-act="backup">Zaxira olish</button><button type="button" class="btn btn-sm btn-ghost" data-act="backup-later">Keyinroq</button></div>';
   setHTML($("#banner"), html);
+}
+function needBackup(){
+  if(state.items.filter(function(i){ return !i.sample; }).length < 3) return false;
+  var last = meta.lastBackup || meta.installedAt, snooze = meta.backupLater;
+  if(isIso(snooze) && dayNum(state.today) - dayNum(snooze) < 3) return false;
+  return !isIso(last) || dayNum(state.today) - dayNum(last) >= 7;
 }
 function renderSheet(g){
   var open = g.today.concat(g.late, g.soon);
@@ -327,7 +351,7 @@ function renderAlerts(g){
   }
   function block(kind, list, icon, title){
     return '<div class="alert alert-'+kind+'"><button type="button" class="alert-main" data-tab="'+kind+'" data-jump="1">'+icon
-      + '<span class="alert-txt"><b>'+title+'</b><span>'+names(list)+'</span><span class="num">'+esc(moneyLine(sumBy(list, dueAmt)))+'</span></span></button></div>';
+      + '<span class="alert-txt"><b>'+title+'</b><span data-raw>'+names(list)+'</span><span class="num">'+esc(moneyLine(sumBy(list, dueAmt)))+'</span></span></button></div>';
   }
   if(g.today.length) html += block("today", g.today, ICON.bell, "Bugun "+g.today.length+" kishi to‘lashi kerak");
   if(g.late.length) html += block("late", g.late, ICON.clock, g.late.length+" ta nasiyaning to‘lovi kechikkan");
@@ -368,16 +392,17 @@ function card(it){
         return '<li><span>'+esc(fmtDate(pp.date, true))+'</span><span class="num">'+esc(money(pp.amount, cur))+'</span>'
           + (w ? '<button type="button" class="x" data-act="unpay" data-id="'+id+'" data-i="'+i+'">'+(armed ? "Ha, o‘chirish" : "Bekor qilish")+'</button>' : '')+'</li>';
       }).join("")+'</ul></details>' : "";
-  var actions;
-  if(st === "closed") actions = w ? '<div class="actions"><button type="button" class="btn btn-sm btn-ghost" data-act="edit" data-id="'+id+'">Tahrirlash</button></div>' : "";
-  else if(!w) actions = "";
+  var actions, tel = intlPhone(it.phone);
+  var call = tel ? '<a class="btn btn-sm" href="tel:'+esc(tel)+'">'+ICON.call+'Qo‘ng‘iroq</a>' : "";
+  if(st === "closed") actions = w ? '<div class="actions">'+call+'<button type="button" class="btn btn-sm btn-ghost" data-act="edit" data-id="'+id+'">Tahrirlash</button></div>' : "";
+  else if(!w) actions = call ? '<div class="actions">'+call+'</div>' : "";
   else actions = '<div class="actions"><button type="button" class="btn btn-sm btn-soft" data-act="pay" data-id="'+id+'">To‘lov olish</button>'
-    + '<button type="button" class="btn btn-sm" data-act="remind" data-id="'+id+'">'+ICON.sms+'SMS</button>'
+    + '<button type="button" class="btn btn-sm" data-act="remind" data-id="'+id+'">'+ICON.sms+'SMS</button>' + call
     + '<button type="button" class="btn btn-sm btn-ghost" data-act="edit" data-id="'+id+'">Tahrirlash</button></div>';
-  return '<article class="debt st-'+st+'"><div class="debt-head"><div class="who"><h3>'+esc(it.name || "Nomsiz")+'</h3>'
-    + (it.phone ? '<span class="phone">'+esc(prettyPhone(it.phone))+'</span>' : "")+'</div>'
+  return '<article class="debt st-'+st+'"><div class="debt-head"><div class="who"><h3 data-raw>'+esc(it.name || "Nomsiz")+'</h3>'
+    + (it.phone ? '<span class="phone" data-raw>'+esc(prettyPhone(it.phone))+'</span>' : "")+'</div>'
     + '<div class="amt"><small>'+label+'</small><span class="amt-num">'+esc(mp.n)+(mp.c ? ' <span class="amt-cur">'+mp.c+'</span>' : "")+'</span></div></div>'
-    + (it.note ? '<p class="note">'+esc(it.note)+'</p>' : "")
+    + (it.note ? '<p class="note" data-raw>'+esc(it.note)+'</p>' : "")
     + '<div class="meta">'+pill+'<span>'+(plan && st !== "closed" ? "To‘lov kuni" : "Muddat")+': '+esc(fmtDate(st === "closed" ? it.dueDate : effDue(it)))+'</span>'
     + (sentToday(it) ? '<span class="sent-tag">'+ICON.check+'SMS yuborildi</span>' : "")
     + (it.sample ? '<span class="pill pill-muted">Namuna</span>' : "")+'</div>'
@@ -609,8 +634,8 @@ function renderBulk(){
     + (ts.noPhone.length ? '<span>Telefon raqami yo‘q: '+names(ts.noPhone)+'</span>' : '');
   $("#bk-list").innerHTML = list.map(function(it, i){
     var r = bulk.results[it.id], st = r === true ? '<span class="st ok">yuborildi</span>' : r ? '<span class="st bad">xato</span>' : (bulk.running && n) ? '<span class="st mut">navbatda</span>' : '<span class="st mut">'+esc(money(dueAmt(it), cur(it)))+'</span>';
-    return '<li class="'+(!n && i === bulk.idx && bulk.running ? "cur" : "")+'"><span class="who-n">'+esc(it.name)+'</span>'+st+'<span class="ph">'+esc(prettyPhone(it.phone))+'</span><span></span>'
-      + '<span class="msg">'+esc(smsText(it))+(r && r !== true ? ' — <b style="color:var(--late)">'+esc(r)+'</b>' : '')+'</span></li>';
+    return '<li class="'+(!n && i === bulk.idx && bulk.running ? "cur" : "")+'"><span class="who-n" data-raw>'+esc(it.name)+'</span>'+st+'<span class="ph">'+esc(prettyPhone(it.phone))+'</span><span></span>'
+      + '<span class="msg" data-raw>'+esc(smsText(it))+(r && r !== true ? ' — <b style="color:var(--late)">'+esc(r)+'</b>' : '')+'</span></li>';
   }).join("") || '<li><span class="info">Bugun SMS yuboriladigan mijoz yo‘q.</span></li>';
   var foot = $("#bk-foot"), done = list.filter(function(it){ return bulk.results[it.id] === true; }).length;
   var prog = $("#bk-prog");
@@ -765,7 +790,8 @@ function renderMenu(){
   var s = sub();
   $("#m-sub-s").textContent = s.status === "trial" ? "Bepul sinov · "+s.daysLeft+" kun qoldi" : s.status === "active" ? "Faol · "+fmtDate(s.until)+" gacha" : "Tugagan · faollashtirish kerak";
   $("#m-biz-s").textContent = meta.business || "";
-  $("#m-last").textContent = meta.lastBackup ? "Oxirgi zaxira: "+fmtDate(meta.lastBackup, true) : "Hali zaxira olinmagan";
+  var auto = meta.autoBackup && meta.autoBackup.at ? "Avto-zaxira: "+fmtDate(meta.autoBackup.at.slice(0,10))+" "+meta.autoBackup.at.slice(11,16)+" · "+meta.autoBackup.where+". " : "";
+  $("#m-last").textContent = auto + (meta.lastBackup ? "Telegram’ga oxirgi: "+fmtDate(meta.lastBackup, true) : "Telegram’ga yoki boshqa joyga yuborib qo‘ying");
   var hasS = state.items.some(function(i){ return i.sample; });
   $("#m-samples-t").textContent = hasS ? "Namunalarni o‘chirish" : "Namuna yozuvlarni ko‘rish";
   $("#m-samples-s").textContent = hasS ? "Faqat namuna yozuvlar o‘chadi" : "Ilova qanday ishlashini ko‘rsatadi";
@@ -781,10 +807,15 @@ function openDialog(id){
 $("#menu-btn").addEventListener("click", function(){ renderMenu(); showDlg($("#dlg-menu")); });
 
 /* zaxira */
-function markBackup(){ meta.lastBackup = todayISO(); saveMeta(); renderMenu(); toast("Zaxira nusxa tayyor"); }
+function markBackup(){ meta.lastBackup = todayISO(); saveMeta(); renderMenu(); render(); toast("Zaxira nusxa tayyor"); }
+function backupJson(){ return JSON.stringify({ app:"nasiya-daftari", version:3, exportedAt:new Date().toISOString(), business:meta.business || "", tpl:meta.tpl || null, items:state.items.filter(function(i){ return !i.sample; }) }, null, 2); }
 $("#m-export").addEventListener("click", function(){
-  var json = JSON.stringify({ app:"nasiya-daftari", version:3, exportedAt:new Date().toISOString(), business:meta.business || "", tpl:meta.tpl || null, items:state.items }, null, 2);
+  var json = backupJson();
   var name = "nasiya-zaxira-"+todayISO()+".json", file = null;
+  var nn = window.NasiyaNative;
+  if(nn && typeof nn.shareBackup === "function"){
+    try { if(nn.shareBackup(json)){ closeDlg($("#dlg-menu")); markBackup(); return; } } catch(e){}
+  }
   try { file = new File([json], name, {type:"application/json"}); } catch(e){}
   var canShare = false;
   try { canShare = !!(file && navigator.canShare && navigator.share && navigator.canShare({files:[file]})); } catch(e){}
@@ -935,6 +966,8 @@ document.addEventListener("click", function(e){
   if(kind === "new"){ if(canWrite()) openForm(null); else openDialog("dlg-sub"); return; }
   if(kind === "import"){ if(canWrite()) startImport(false); else openDialog("dlg-sub"); return; }
   if(kind === "samples"){ addSamples(); return; }
+  if(kind === "backup"){ $("#m-export").click(); return; }
+  if(kind === "backup-later"){ meta.backupLater = state.today; saveMeta(); render(); return; }
   if(kind === "unpay"){ unpay(act.dataset.id, act.dataset.i); return; }
   var it = find(act.dataset.id); if(!it) return;
   if(!canWrite()) openDialog("dlg-sub");
@@ -952,6 +985,98 @@ setInterval(checkDay, 60000);
 document.addEventListener("visibilitychange", function(){ if(document.visibilityState === "visible") checkDay(); });
 window.addEventListener("storage", function(e){ if(e.key === DATA_KEY){ state.items = loadItems(); render(); } });
 
+
+/* ---------- lotin / kirill yozuvi ----------
+   Ilova matnlari lotinda yozilgan; kirill tanlansa, ekrandagi matnlar avtomatik o'giriladi.
+   Mijoz ismi, izoh, telefon va SMS matni (data-raw) qanday yozilgan bo'lsa, shunday qoladi. */
+var L2C = {a:"а",b:"б",c:"ц",d:"д",e:"е",f:"ф",g:"г",h:"ҳ",i:"и",j:"ж",k:"к",l:"л",m:"м",n:"н",o:"о",p:"п",q:"қ",r:"р",s:"с",t:"т",u:"у",v:"в",w:"в",x:"х",y:"й",z:"з"};
+var C2L = {"а":"a","б":"b","в":"v","г":"g","д":"d","ж":"j","з":"z","и":"i","й":"y","к":"k","л":"l","м":"m","н":"n","о":"o","п":"p","р":"r","с":"s","т":"t","у":"u","ф":"f","х":"x","ц":"ts","ч":"ch","ш":"sh","щ":"sh","ъ":"'","ь":"","ы":"i","э":"e","ю":"yu","я":"ya","ё":"yo","ў":"o'","қ":"q","ғ":"g'","ҳ":"h"};
+var MONTH_C = {yanvar:"январ",fevral:"феврал",aprel:"апрел",iyun:"июн",iyul:"июл",sentabr:"сентябр",oktabr:"октябр",noyabr:"ноябр",dekabr:"декабр"};
+var APOS = "‘’'ʻʼ`", VOWELS = "aeiouAEIOUаэиоуеёюяўАЭИОУЕЁЮЯЎ";
+var KEEP_RE = /(\{[a-z]+\}|https?:\/\/\S+|@[A-Za-z0-9_]+|Download\/Nasiya\S*|\.(?:json|apk)\b|[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.(?:uz|me|app|com|org|html|json|apk)\b|Add to Home Screen|Play Market|Play Protect|\bND1\.\S+|\b[A-Z0-9]{4}-[A-Z0-9]{4}\b|\b(?:SMS|SIM|APK|PDF|JSON|CSV|ID|USD|UZS|PIN|QR|OK|AI|Payme|Click|Telegram|Android|iPhone|iPad|Safari|Chrome|Google|Download|Beeline|Ucell|Uzmobile|Mobiuz|Humans|Excel|WhatsApp)\b)/;
+function isApo(ch){ return !!ch && APOS.indexOf(ch) > -1; }
+function isLetter(ch){ return !!ch && /[A-Za-zА-Яа-яЁёЎўҚқҒғҲҳ]/.test(ch); }
+function cyrSeg(t){
+  t = t.replace(/(^|[^A-Za-z‘’'ʻ])(yanvar|fevral|aprel|iyun|iyul|sentabr|oktabr|noyabr|dekabr)([A-Za-z‘’'ʻ]*)/gi, function(m, pre, w, rest){
+    var c = MONTH_C[w.toLowerCase()]; if(w.charAt(0) !== w.charAt(0).toLowerCase()) c = c.charAt(0).toUpperCase() + c.slice(1);
+    return pre + c + (rest ? rest : "ь");
+  });
+  var o = "", i = 0, n = t.length;
+  while(i < n){
+    var c = t.charAt(i), lc = c.toLowerCase(), nx = t.charAt(i+1), nl = nx.toLowerCase(), r, step = 1;
+    if(!/[a-z]/.test(lc)){ o += (isApo(c) && isLetter(t.charAt(i-1))) ? "ъ" : c; i++; continue; }
+    var up = c !== lc;
+    if((lc === "o" || lc === "g") && isApo(nx)){ r = lc === "o" ? "ў" : "ғ"; step = 2; }
+    else if(lc === "s" && nl === "h"){ r = "ш"; step = 2; }
+    else if(lc === "c" && nl === "h"){ r = "ч"; step = 2; }
+    else if(lc === "y" && nl === "o" && !isApo(t.charAt(i+2))){ r = "ё"; step = 2; }
+    else if(lc === "y" && (nl === "u" || nl === "a" || nl === "e")){ r = nl === "u" ? "ю" : nl === "a" ? "я" : "е"; step = 2; }
+    else if(lc === "e"){ var pv = t.charAt(i-1); r = (!isLetter(pv) || VOWELS.indexOf(pv) > -1) ? "э" : "е"; }
+    else r = L2C[lc] || c;
+    o += up ? r.toUpperCase() : r; i += step;
+  }
+  return o;
+}
+function latSeg(t){
+  var o = "", i = 0, n = t.length;
+  while(i < n){
+    var c = t.charAt(i), lc = c.toLowerCase(), r;
+    if(lc === "е"){ var pv = t.charAt(i-1); r = (!isLetter(pv) || VOWELS.indexOf(pv) > -1 || pv === "ъ" || pv === "ь") ? "ye" : "e"; }
+    else if(C2L.hasOwnProperty(lc)) r = C2L[lc];
+    else { o += c; i++; continue; }
+    if(c !== lc && r){ var nxUp = t.charAt(i+1) && t.charAt(i+1) !== t.charAt(i+1).toLowerCase(); r = nxUp ? r.toUpperCase() : r.charAt(0).toUpperCase() + r.slice(1); }
+    o += r; i++;
+  }
+  return o;
+}
+function mapKeep(text, fn){ return String(text).split(KEEP_RE).map(function(seg, i){ return i % 2 ? seg : fn(seg); }).join(""); }
+function lat2cyr(text){ return /[A-Za-z]/.test(text) ? mapKeep(text, cyrSeg) : text; }
+function cyr2lat(text){ return mapKeep(text, latSeg); }
+var SCRIPT_ATTRS = ["placeholder", "aria-label", "title"];
+function rawNode(el){ return !el || !!el.closest("[data-raw],script,style,textarea,code,svg"); }
+function cyrAttr(el, a){ var v = el.getAttribute(a); if(v){ var c = lat2cyr(v); if(c !== v) el.setAttribute(a, c); } }
+function cyrNode(node){
+  if(node.nodeType === 3){ if(!rawNode(node.parentElement)){ var v = node.nodeValue, c = lat2cyr(v); if(c !== v) node.nodeValue = c; } return; }
+  if(node.nodeType !== 1 || rawNode(node)) return;
+  SCRIPT_ATTRS.forEach(function(a){ if(node.hasAttribute(a)) cyrAttr(node, a); });
+  Array.prototype.forEach.call(node.querySelectorAll("[placeholder],[aria-label],[title]"), function(el){ if(!rawNode(el)) SCRIPT_ATTRS.forEach(function(a){ if(el.hasAttribute(a)) cyrAttr(el, a); }); });
+  var w = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null), list = [], t;
+  while((t = w.nextNode())) list.push(t);
+  list.forEach(cyrNode);
+}
+var cyrObs = null;
+function applyScript(){
+  var cyr = meta.script === "cyrl";
+  Array.prototype.forEach.call(document.querySelectorAll("[data-script]"), function(b){ b.setAttribute("aria-pressed", String((b.dataset.script === "cyrl") === cyr)); });
+  if(!cyr) return;
+  document.documentElement.lang = "uz-Cyrl";
+  document.title = lat2cyr(document.title);
+  cyrNode(document.body);
+  if(!cyrObs && window.MutationObserver){
+    cyrObs = new MutationObserver(function(ms){
+      ms.forEach(function(m){
+        if(m.type === "characterData") cyrNode(m.target);
+        else if(m.type === "attributes"){ if(!rawNode(m.target)) cyrAttr(m.target, m.attributeName); }
+        else Array.prototype.forEach.call(m.addedNodes, cyrNode);
+      });
+    });
+    cyrObs.observe(document.body, {childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:SCRIPT_ATTRS});
+  }
+}
+document.addEventListener("click", function(e){
+  var b = e.target.closest("[data-script]"); if(!b) return;
+  var want = b.dataset.script === "cyrl" ? "cyrl" : null;
+  if((meta.script || null) === want) return;
+  if(want){ meta.script = "cyrl"; saveMeta(); applyScript(); }
+  else { delete meta.script; saveMeta(); location.reload(); }
+});
+/* SMS matnlarini yozuvga o'girish (kirillda 1 SMS = 70 belgi) */
+function convertTpl(fn){
+  ["#tp-today", "#tp-late", "#tp-soon"].forEach(function(id){ var el = $(id); el.value = fn(el.value); el.dispatchEvent(new Event("input", {bubbles:true})); });
+}
+$("#tp-cyr").addEventListener("click", function(){ convertTpl(function(v){ return mapKeep(v, cyrSeg); }); toast("Matnlar kirillga o‘girildi. «Saqlash»ni bosing."); });
+$("#tp-lat").addEventListener("click", function(){ convertTpl(cyr2lat); toast("Matnlar lotinga o‘girildi. «Saqlash»ni bosing."); });
+
 /* ---------- ishga tushirish ---------- */
 try { localStorage.setItem("nd-test", "1"); localStorage.removeItem("nd-test"); }
 catch(e){ state.storageOk = false; }
@@ -959,8 +1084,10 @@ Array.prototype.forEach.call(document.querySelectorAll(".js-price"), function(el
 loadMeta(); ensureMeta();
 state.items = loadItems();
 state.tab = pickTab();
+if(window.NasiyaNative && typeof window.NasiyaNative.autoBackup === "function") Array.prototype.forEach.call(document.querySelectorAll(".js-native-only"), function(el){ el.hidden = false; });
 if(meta.business){ showMain(); render(); }
 else { $("#onboard").hidden = false; }
+applyScript();
 refreshRate();
 if(!state.storageOk){ $("#notice-text").textContent = "Bu brauzer ma’lumotlarni saqlashga ruxsat bermayapti (yashirin rejim bo‘lishi mumkin). Oddiy rejimda oching."; $("#notice").hidden = false; }
 if("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost") && !window.NasiyaNative){

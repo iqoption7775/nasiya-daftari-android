@@ -5,7 +5,7 @@
 "use strict";
 
 /* ===== SOZLAMALAR — kerak bo'lsa shu yerni o'zgartiring ===== */
-var APP_VERSION = "2026-10-31-2"; // yangilashda version.json bilan birga o'zgartiriladi
+var APP_VERSION = "2026-10-31-3"; // yangilashda version.json bilan birga o'zgartiriladi
 var CONFIG = {
   price: 200000,             // oylik obuna narxi, so'mda
   usdRate: 12023,            // dollar kursi (Markaziy bank, 31.10.2026), internet bo'lmasa shu ishlatiladi
@@ -159,7 +159,7 @@ function find(id){ return state.items.filter(function(x){ return x.id === id; })
 /* ---------- SMS: qoida va matn ---------- */
 /* Bugun kimga SMS: to'lov kuni bugun, yoki kechikkan bo'lsa har 7 kunda bir marta. */
 function smsKind(it){
-  if(statusOf(it) === "closed") return null;
+  if(it.sample || statusOf(it) === "closed") return null; // namuna yozuvlarga SMS hech qachon ketmaydi
   var p = planInfo(it); if(!p.next) return null;
   var t = state.today, late = dayNum(t) - dayNum(p.next.date);
   var dueToday = p.rows.some(function(r){ return !r.done && r.date === t; });
@@ -392,7 +392,7 @@ function card(it){
         return '<li><span>'+esc(fmtDate(pp.date, true))+'</span><span class="num">'+esc(money(pp.amount, cur))+'</span>'
           + (w ? '<button type="button" class="x" data-act="unpay" data-id="'+id+'" data-i="'+i+'">'+(armed ? "Ha, o‘chirish" : "Bekor qilish")+'</button>' : '')+'</li>';
       }).join("")+'</ul></details>' : "";
-  var actions, tel = intlPhone(it.phone);
+  var actions, tel = it.sample ? "" : intlPhone(it.phone);
   var call = tel ? '<a class="btn btn-sm" href="tel:'+esc(tel)+'">'+ICON.call+'Qo‘ng‘iroq</a>' : "";
   if(st === "closed") actions = w ? '<div class="actions">'+call+'<button type="button" class="btn btn-sm btn-ghost" data-act="edit" data-id="'+id+'">Tahrirlash</button></div>' : "";
   else if(!w) actions = call ? '<div class="actions">'+call+'</div>' : "";
@@ -600,8 +600,9 @@ function openRemind(it){
   var phone = intlPhone(it.phone);
   $("#rm-title").textContent = "SMS eslatma"; $("#rm-count").hidden = true;
   $("#rm-name").textContent = it.name; $("#rm-phone").textContent = prettyPhone(it.phone);
-  $("#rm-nophone").hidden = !!phone; $("#rm-text").value = smsText(it);
-  $("#rm-sms").hidden = !phone; $("#rm-sms").dataset.to = phone; updateSmsLink();
+  $("#rm-nophone").textContent = it.sample ? "Bu namuna yozuv: unga SMS yuborilmaydi. O‘z mijozlaringizni kiritganingizda «SMS yuborish» tugmasi chiqadi." : "Bu mijozning telefon raqami kiritilmagan. Matnni nusxalab, o‘zingiz yuboring.";
+  $("#rm-nophone").hidden = !!phone && !it.sample; $("#rm-text").value = smsText(it);
+  $("#rm-sms").hidden = !phone || !!it.sample; $("#rm-sms").dataset.to = phone; updateSmsLink();
   $("#rm-next").hidden = true;
   $("#rm-sms").textContent = nativeSms() ? "Yuborish (SIM karta)" : "SMS yuborish";
   showDlg($("#dlg-rem"));
@@ -612,7 +613,7 @@ $("#rm-text").addEventListener("input", updateSmsLink);
 $("#rm-copy").addEventListener("click", function(){ copyText($("#rm-text").value, this, "Nusxalash"); });
 $("#rm-sms").addEventListener("click", function(e){
   var n = nativeSms(), it = find(remId);
-  if(!it) return;
+  if(!it || it.sample){ e.preventDefault(); return; }
   if(n){
     e.preventDefault();
     startNativeBatch([{ id:it.id, phone:intlPhone(it.phone), text:$("#rm-text").value }], function(){ closeDlg($("#dlg-rem")); });
@@ -810,6 +811,9 @@ $("#menu-btn").addEventListener("click", function(){ renderMenu(); showDlg($("#d
 function markBackup(){ meta.lastBackup = todayISO(); saveMeta(); renderMenu(); render(); toast("Zaxira nusxa tayyor"); }
 function backupJson(){ return JSON.stringify({ app:"nasiya-daftari", version:3, exportedAt:new Date().toISOString(), business:meta.business || "", tpl:meta.tpl || null, items:state.items.filter(function(i){ return !i.sample; }) }, null, 2); }
 $("#m-export").addEventListener("click", function(){
+  if(!state.items.some(function(i){ return !i.sample; })){
+    toast("Zaxiraga oladigan yozuv yo‘q: namuna yozuvlar zaxiraga olinmaydi. Avval o‘z mijozlaringizni kiriting.", true); return;
+  }
   var json = backupJson();
   var name = "nasiya-zaxira-"+todayISO()+".json", file = null;
   var nn = window.NasiyaNative;
@@ -849,11 +853,12 @@ $("#imp-file").addEventListener("change", function(){
   var f = this.files && this.files[0]; this.value = ""; if(!f) return;
   var r = new FileReader();
   r.onload = function(){
-    var items, biz = "", t = null;
+    var items, biz = "", t = null, why = "Bu fayl Nasiya daftari zaxirasi emas. Boshqa faylni tanlang.";
     try {
-      var d = JSON.parse(String(r.result));
+      var d = JSON.parse(String(r.result).replace(/^\uFEFF/, ""));
       items = Array.isArray(d) ? d : d && d.items; biz = d && d.business || ""; t = d && d.tpl || null;
       if(!Array.isArray(items)) throw 0;
+      why = "Bu zaxirada nasiya yozuvi yo‘q. Namuna yozuvlar zaxiraga olinmaydi: o‘z mijozlaringiz kiritilgandan keyin olingan zaxirani tanlang.";
       items = items.filter(function(x){ return x && typeof x === "object" && x.name && isIso(x.dueDate) && !x.sample; }).map(function(x){
         var amount = Number(x.amount) || 0, sch = cleanSchedule(x.schedule, amount);
         return { id:newId(), name:String(x.name).slice(0,120), phone:String(x.phone||"").slice(0,40), note:String(x.note||"").slice(0,300),
@@ -864,9 +869,19 @@ $("#imp-file").addEventListener("change", function(){
       }).filter(function(x){ return x.amount > 0; });
       if(!items.length) throw 0;
     } catch(e){
-      if(importFromOnboard) return showErr("#ob-err", "Bu fayl Nasiya daftari zaxirasi emas.");
+      if(importFromOnboard) return showErr("#ob-err", why);
       if(!$("#dlg-menu").open){ renderMenu(); showDlg($("#dlg-menu")); }
-      return showErr("#imp-err", "Bu fayl Nasiya daftari zaxirasi emas. Boshqa faylni tanlang.");
+      return showErr("#imp-err", why);
+    }
+    // Shu zaxira avval tiklangan bo'lsa, bir xil yozuvlar ikki marta qo'shilmaydi.
+    var have = {}; state.items.forEach(function(x){ have[dupKey(x)] = 1; });
+    var total = items.length; items = items.filter(function(x){ return !have[dupKey(x)]; });
+    var dupes = total - items.length;
+    if(!items.length){
+      var msg = "Bu zaxiradagi "+total+" ta nasiyaning hammasi ilovada allaqachon bor.";
+      if(importFromOnboard) return showErr("#ob-err", msg);
+      if(!$("#dlg-menu").open){ renderMenu(); showDlg($("#dlg-menu")); }
+      return showErr("#imp-err", msg);
     }
     if(importFromOnboard){
       meta.business = meta.business || biz || "Nasiya daftari"; if(t && !meta.tpl) meta.tpl = t; saveMeta();
@@ -875,7 +890,7 @@ $("#imp-file").addEventListener("change", function(){
     }
     pendingImport = items;
     if(!$("#dlg-menu").open){ renderMenu(); showDlg($("#dlg-menu")); }
-    $("#imp-text").textContent = "Faylda "+items.length+" ta nasiya bor. Ular mavjud yozuvlaringizga qo‘shiladi (hech narsa o‘chmaydi).";
+    $("#imp-text").textContent = "Faylda "+items.length+" ta yangi nasiya bor"+(dupes ? " ("+dupes+" tasi ilovada allaqachon bor, ular qayta qo‘shilmaydi)" : "")+". Ular mavjud yozuvlaringizga qo‘shiladi, hech narsa o‘chmaydi.";
     $("#imp-confirm").hidden = false; showErr("#imp-err", "");
   };
   r.readAsText(f);
@@ -887,6 +902,8 @@ $("#imp-yes").addEventListener("click", function(){
   toast("Qo‘shildi: "+n+" ta nasiya");
 });
 $("#imp-no").addEventListener("click", function(){ pendingImport = null; $("#imp-confirm").hidden = true; });
+
+function dupKey(x){ return [String(x.name || "").trim().toLowerCase(), String(x.phone || "").replace(/\D/g, "").slice(-9), Number(x.amount) || 0, x.currency === "USD" ? "USD" : "UZS", x.givenDate || "", x.dueDate || ""].join("|"); }
 
 /* namunalar */
 function makeSamples(){

@@ -1,0 +1,127 @@
+Downloading https://services.gradle.org/distributions/gradle-8.9-bin.zip
+............10%.............20%.............30%.............40%.............50%.............60%.............70%.............80%.............90%.............100%
+
+Welcome to Gradle 8.9!
+
+Here are the highlights of this release:
+ - Enhanced Error and Warning Messages
+ - IDE Integration Improvements
+ - Daemon JVM Information
+
+For more details see https://docs.gradle.org/8.9/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :admin:preBuild UP-TO-DATE
+> Task :admin:preReleaseBuild UP-TO-DATE
+> Task :admin:javaPreCompileRelease
+> Task :admin:checkReleaseAarMetadata
+> Task :admin:generateReleaseResValues
+> Task :admin:mapReleaseSourceSetPaths
+> Task :admin:generateReleaseResources
+> Task :admin:packageReleaseResources
+> Task :admin:mergeReleaseResources
+> Task :admin:createReleaseCompatibleScreenManifests
+> Task :admin:extractDeepLinksRelease
+> Task :admin:parseReleaseLocalResources
+> Task :admin:processReleaseMainManifest
+> Task :admin:processReleaseManifest
+> Task :admin:extractProguardFiles
+> Task :admin:mergeReleaseJniLibFolders
+> Task :admin:mergeReleaseNativeLibs NO-SOURCE
+> Task :admin:stripReleaseDebugSymbols NO-SOURCE
+> Task :admin:extractReleaseNativeSymbolTables NO-SOURCE
+> Task :admin:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :admin:checkReleaseDuplicateClasses
+> Task :admin:desugarReleaseFileDependencies
+> Task :admin:mergeReleaseStartupProfile
+> Task :admin:processReleaseManifestForPackage
+> Task :admin:mergeReleaseArtProfile
+> Task :admin:mergeExtDexRelease
+> Task :admin:mergeReleaseShaders
+> Task :admin:compileReleaseShaders NO-SOURCE
+> Task :admin:generateReleaseAssets UP-TO-DATE
+> Task :admin:mergeReleaseAssets
+> Task :admin:compressReleaseAssets
+> Task :admin:extractReleaseVersionControlInfo
+> Task :admin:processReleaseJavaRes NO-SOURCE
+> Task :admin:collectReleaseDependencies
+> Task :admin:processReleaseResources
+> Task :admin:mergeReleaseJavaResource
+> Task :admin:sdkReleaseDependencyData
+> Task :admin:compileReleaseJavaWithJavac
+> Task :admin:generateReleaseLintVitalReportModel
+> Task :admin:dexBuilderRelease
+> Task :admin:mergeReleaseGlobalSynthetics
+> Task :admin:validateSigningRelease
+> Task :admin:writeReleaseAppMetadata
+> Task :admin:writeReleaseSigningConfigVersions
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:javaPreCompileRelease
+> Task :admin:optimizeReleaseResources
+> Task :app:checkReleaseAarMetadata
+> Task :app:generateReleaseResValues
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :admin:mergeDexRelease
+> Task :app:parseReleaseLocalResources
+> Task :admin:compileReleaseArtProfile
+> Task :app:mergeReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:processReleaseManifestForPackage
+> Task :app:extractProguardFiles
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:mergeReleaseNativeLibs NO-SOURCE
+> Task :app:stripReleaseDebugSymbols NO-SOURCE
+> Task :app:extractReleaseNativeSymbolTables NO-SOURCE
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeReleaseStartupProfile
+> Task :app:mergeExtDexRelease
+> Task :app:mergeReleaseArtProfile
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :app:compressReleaseAssets
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:processReleaseJavaRes NO-SOURCE
+> Task :app:mergeReleaseJavaResource
+> Task :app:collectReleaseDependencies
+> Task :app:sdkReleaseDependencyData
+> Task :app:validateSigningRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+> Task :admin:packageRelease
+> Task :admin:createReleaseApkListingFileRedirect
+> Task :app:processReleaseResources
+
+> Task :app:compileReleaseJavaWithJavac
+Note: /home/runner/work/nasiya-daftari-android/nasiya-daftari-android/app/src/main/java/uz/nasiyadaftari/app/MainActivity.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :app:generateReleaseLintVitalReportModel
+> Task :app:dexBuilderRelease
+> Task :app:mergeReleaseGlobalSynthetics
+> Task :app:mergeDexRelease
+> Task :app:compileReleaseArtProfile
+> Task :app:optimizeReleaseResources
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :admin:lintVitalAnalyzeRelease
+> Task :app:lintVitalAnalyzeRelease
+> Task :admin:lintVitalReportRelease
+> Task :admin:lintVitalRelease
+> Task :admin:assembleRelease
+> Task :app:lintVitalReportRelease
+> Task :app:lintVitalRelease
+> Task :app:assembleRelease
+
+BUILD SUCCESSFUL in 52s
+86 actionable tasks: 86 executed

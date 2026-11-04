@@ -535,6 +535,7 @@ $("#imp-file").addEventListener("change", function(){
 
 /* ---------- zaxira nusxa ---------- */
 var NATIVE = window.NasiyaNative || null;
+if(!window.__localDb) $("#bk-box").hidden = true;
 function backupJson(){ return JSON.stringify({ app:"nasiya-obunalar", v:1, at:new Date().toISOString(), subs:state.subs.map(function(r){ return Object.assign({}, r); }) }); }
 function bkSay(t, bad){ var m = $("#bk-msg"); m.textContent = t; m.className = bad ? "err" : "help"; m.hidden = false; }
 function recKey(r){ return [r.dev, r.until, r.at, r.amount].join("|"); }

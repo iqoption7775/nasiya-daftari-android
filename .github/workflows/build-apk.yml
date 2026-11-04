@@ -33,6 +33,7 @@ jobs:
           mkdir -p out
           cp build.log out/build.log 2>/dev/null || echo "build.log yo'q" > out/build.log
           cp app/build/outputs/apk/release/*.apk out/nasiya-daftari.apk 2>/dev/null || true
+          cp admin/build/outputs/apk/release/*.apk out/nasiya-obunalar.apk 2>/dev/null || true
           echo "run=${{ github.run_number }} sha=${{ github.sha }} result=${{ steps.build.outcome }}" > out/RESULT.txt
           cd out
           git init -q

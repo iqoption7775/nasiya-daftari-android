@@ -5,7 +5,7 @@
 "use strict";
 
 /* ===== SOZLAMALAR — kerak bo'lsa shu yerni o'zgartiring ===== */
-var APP_VERSION = "2026-10-31-4"; // yangilashda version.json bilan birga o'zgartiriladi
+var APP_VERSION = "2026-11-04-1"; // yangilashda version.json bilan birga o'zgartiriladi
 var CONFIG = {
   price: 200000,             // oylik obuna narxi, so'mda
   usdRate: 12023,            // dollar kursi (Markaziy bank, 31.10.2026), internet bo'lmasa shu ishlatiladi
@@ -41,6 +41,7 @@ var ICON = {
   clock:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   book:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/><path d="M9 8h6"/></svg>',
   call:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3.5l1.8 4.4-2.3 1.4a11 11 0 0 0 6.2 6.2l1.4-2.3L20 15.5V19a1.5 1.5 0 0 1-1.6 1.5A16.5 16.5 0 0 1 3.5 5.6 1.5 1.5 0 0 1 5 4z"/></svg>',
+  edit:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>',
   sms:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"/></svg>',
   check:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>'
 };
@@ -292,7 +293,6 @@ function pickTab(){ var g = compute(); return g.today.length ? "today" : g.late.
 function render(){
   var g = compute();
   $("#biz-name").textContent = meta.business || "Nasiya daftari";
-  $("#today-label").textContent = fmtLong(state.today);
   renderSubLine(); renderBanner(); renderSheet(g); renderAlerts(g); renderList(g);
   var w = canWrite();
   $("#fab").hidden = !w;
@@ -328,34 +328,21 @@ function renderSheet(g){
   // Umumiy nasiya bitta summa, so'mda: dollardagi qarzlar kurs bo'yicha qo'shiladi.
   var m = sumBy(open, remOf), p = moneyParts(toUZS(m), "UZS");
   setHTML($("#total"), '<span class="n">'+esc(p.n)+'</span><span class="c">'+p.c+'</span>');
-  setHTML($("#total-extra"), (m.USD > 0 ? '<span>shundan <b class="num">'+esc(money(m.USD, "USD"))+'</b> · '+esc(rateText())+'</span>' : "") + '<span>'+open.length+' ta ochiq nasiya</span>');
+  setHTML($("#total-extra"), '<span>'+open.length+' ta ochiq nasiya</span>' + (m.USD > 0 ? '<span>shundan <b class="num">'+esc(money(m.USD, "USD"))+'</b> · '+esc(rateText())+'</span>' : ""));
   setHTML($("#tiles"), TABS.map(function(t){
-    var arr = g[t.id];
-    var m = sumBy(arr, tabSum(t.id));
-    var sums = t.id === "closed"
-      ? '<span>'+esc(money(toUZS(m), "UZS"))+'</span>'+(m.USD > 0 ? '<span class="tile-rate">'+esc(rateText())+'</span>' : "")
-      : entries(m).map(function(x){ return '<span>'+esc(money(x[1], x[0]))+'</span>'; }).join("");
     return '<button type="button" class="tile tile-'+t.id+'" role="tab" aria-selected="'+(state.tab === t.id)+'" aria-controls="list" data-tab="'+t.id+'">'
-      + '<span class="tile-label"><i class="dot"></i>'+t.label+'</span><span class="tile-count">'+arr.length+'<small> ta</small></span>'
-      + '<span class="tile-sum">'+sums+'</span></button>';
+      + '<span class="tile-count">'+g[t.id].length+'</span><span class="tile-label"><i class="dot"></i>'+t.label+'</span></button>';
   }).join(""));
 }
 function names(arr){ var n = arr.map(function(i){ return esc(i.name || "Nomsiz"); }); return n.length <= 3 ? n.join(", ") : n.slice(0,3).join(", ")+" va yana "+(n.length-3)+" kishi"; }
 function renderAlerts(g){
   var html = "", ts = todaysSms(), native = !!nativeSms();
   if(ts.pending.length && canWrite()){
-    html += '<div class="smsbar">'+ICON.sms+'<p><b>Bugun '+ts.pending.length+' kishiga SMS yuborish kerak</b>'
-      + '<span>'+(native ? "Telefoningiz SIM kartasidan, har biriga o‘z summasi bilan" : "Har biriga o‘z summasi bilan tayyor matn")+'</span></p>'
+    html += '<div class="smsbar">'+ICON.sms+'<p><b>SMS: '+ts.pending.length+' kishi</b></p>'
       + '<button type="button" class="btn btn-sm" data-open="dlg-bulk">'+(native ? "Hammasiga yuborish" : "Yuborish")+'</button></div>';
   } else if(ts.sent.length){
-    html += '<div class="smsbar done">'+ICON.check+'<p><b>Bugungi SMS’lar yuborildi: '+ts.sent.length+' ta</b><span>Keyingi eslatmalar to‘lov kunlarida chiqadi</span></p></div>';
+    html += '<div class="smsbar done">'+ICON.check+'<p><b>Bugungi SMS’lar yuborildi: '+ts.sent.length+' ta</b></p></div>';
   }
-  function block(kind, list, icon, title){
-    return '<div class="alert alert-'+kind+'"><button type="button" class="alert-main" data-tab="'+kind+'" data-jump="1">'+icon
-      + '<span class="alert-txt"><b>'+title+'</b><span data-raw>'+names(list)+'</span><span class="num">'+esc(moneyLine(sumBy(list, dueAmt)))+'</span></span></button></div>';
-  }
-  if(g.today.length) html += block("today", g.today, ICON.bell, "Bugun "+g.today.length+" kishi to‘lashi kerak");
-  if(g.late.length) html += block("late", g.late, ICON.clock, g.late.length+" ta nasiyaning to‘lovi kechikkan");
   if(state.items.some(function(i){ return i.sample; })){
     html += '<div class="notice"><p>Hozirgi yozuvlar namuna. O‘z mijozlaringizni kiritishdan oldin ularni o‘chirib tashlang.</p>'
       + '<button type="button" class="btn btn-sm'+(state.armSamples ? ' btn-danger armed' : '')+'" id="clear-samples">'+(state.armSamples ? "Ha, o‘chirish" : "Namunalarni o‘chirish")+'</button></div>';
@@ -394,12 +381,12 @@ function card(it){
           + (w ? '<button type="button" class="x" data-act="unpay" data-id="'+id+'" data-i="'+i+'">'+(armed ? "Ha, o‘chirish" : "Bekor qilish")+'</button>' : '')+'</li>';
       }).join("")+'</ul></details>' : "";
   var actions, tel = it.sample ? "" : intlPhone(it.phone);
-  var call = tel ? '<a class="btn btn-sm" href="tel:'+esc(tel)+'">'+ICON.call+'Qo‘ng‘iroq</a>' : "";
-  if(st === "closed") actions = w ? '<div class="actions">'+call+'<button type="button" class="btn btn-sm btn-ghost" data-act="edit" data-id="'+id+'">Tahrirlash</button></div>' : "";
-  else if(!w) actions = call ? '<div class="actions">'+call+'</div>' : "";
-  else actions = '<div class="actions"><button type="button" class="btn btn-sm btn-soft" data-act="pay" data-id="'+id+'">To‘lov olish</button>'
-    + '<button type="button" class="btn btn-sm" data-act="remind" data-id="'+id+'">'+ICON.sms+'SMS</button>' + call
-    + '<button type="button" class="btn btn-sm btn-ghost" data-act="edit" data-id="'+id+'">Tahrirlash</button></div>';
+  var call = tel ? '<a class="btn btn-sm btn-icon" href="tel:'+esc(tel)+'" aria-label="Qo‘ng‘iroq qilish" title="Qo‘ng‘iroq">'+ICON.call+'</a>' : "";
+  var edit = '<button type="button" class="btn btn-sm btn-icon btn-ghost" data-act="edit" data-id="'+id+'" aria-label="Tahrirlash" title="Tahrirlash">'+ICON.edit+'</button>';
+  if(st === "closed") actions = w ? '<div class="actions"><span class="grow"></span>'+call+edit+'</div>' : "";
+  else if(!w) actions = call ? '<div class="actions"><span class="grow"></span>'+call+'</div>' : "";
+  else actions = '<div class="actions"><button type="button" class="btn btn-sm btn-soft grow" data-act="pay" data-id="'+id+'">To‘lov olish</button>'
+    + '<button type="button" class="btn btn-sm btn-icon" data-act="remind" data-id="'+id+'" aria-label="SMS yuborish" title="SMS">'+ICON.sms+'</button>' + call + edit + '</div>';
   return '<article class="debt st-'+st+'"><div class="debt-head"><div class="who"><h3 data-raw>'+esc(it.name || "Nomsiz")+'</h3>'
     + (it.phone ? '<span class="phone" data-raw>'+esc(prettyPhone(it.phone))+'</span>' : "")+'</div>'
     + '<div class="amt"><small>'+label+'</small><span class="amt-num">'+esc(mp.n)+(mp.c ? ' <span class="amt-cur">'+mp.c+'</span>' : "")+'</span></div></div>'
@@ -417,6 +404,7 @@ function renderList(g){
     arr = arr.filter(function(it){ return String(it.name||"").toLowerCase().indexOf(q) > -1 || String(it.note||"").toLowerCase().indexOf(q) > -1 || (qd.length >= 3 && String(it.phone||"").replace(/\D/g,"").indexOf(qd) > -1); });
   }
   $("#list-title").textContent = tab.title;
+  document.querySelector("label.search").hidden = !(state.q || state.items.length >= 6);
   var lm = sumBy(arr, tabSum(tab.id));
   $("#list-sub").textContent = arr.length+" ta · "+(tab.id === "closed" ? money(toUZS(lm), "UZS")+(lm.USD > 0 ? " (dollarlar "+rateText()+" kursida)" : "") : moneyLine(lm));
   var html;
@@ -472,6 +460,7 @@ function planPreview(){
 ["#f-amount","#f-count","#f-every","#f-first"].forEach(function(s){ $(s).addEventListener("input", planPreview); $(s).addEventListener("change", planPreview); });
 $("#cur-usd").addEventListener("change", planPreview); $("#cur-uzs").addEventListener("change", planPreview);
 $("#f-plan").addEventListener("change", function(){
+  if(this.checked) $("#f-more").open = true;
   if(this.checked && !$("#f-first").value) $("#f-first").value = addMonths($("#f-given").value || state.today, 1);
   setPlanUI(this.checked);
 });
@@ -491,6 +480,7 @@ function openForm(it){
   $("#f-every").value = plan ? it.plan.every : "month";
   $("#f-first").value = plan ? it.plan.first : "";
   setPlanUI(plan);
+  $("#f-more").open = !!(plan || (it && (it.note || (it.givenDate && it.givenDate !== state.today))));
   $("#f-del").hidden = !it; disarmDel(); showErr("#f-err", "");
   showDlg($("#dlg-form"));
   if(!it) setTimeout(function(){ $("#f-name").focus(); }, 60);
@@ -649,6 +639,8 @@ function renderBulk(){
     $("#bk-sim-wrap").hidden = sims.length < 2;
     if(sims.length >= 2 && !$("#bk-sim").options.length) $("#bk-sim").innerHTML = sims.map(function(s){ return '<option value="'+esc(s.id)+'">'+esc(s.name || ("SIM "+s.slot))+'</option>'; }).join("");
     $("#bk-hint").textContent = "Birinchi marta telefon SMS ruxsatini so‘raydi. Ilova faqat yuboradi: xabarlaringiz, kontaktlaringiz va qo‘ng‘iroqlaringizni o‘qimaydi. SMS’lar orasida "+Math.round(CONFIG.smsDelayMs/1000)+" soniya pauza bo‘ladi, shunda operator ularni spam deb hisoblamaydi. Ilovani yopmang.";
+    if(Object.keys(bulk.results).some(function(k){ return /ruxsat/i.test(String(bulk.results[k])); }))
+      $("#bk-hint").innerHTML = "<b>SMS ruxsati yoqilmagan.</b> Telefon sozlamalarida: <b>Settings → Apps → Nasiya daftari</b> → o‘ng yuqoridagi <b>⋮</b> → <b>Allow restricted settings</b>. Keyin <b>Permissions → SMS → Allow</b> ni yoqing va «Hammasiga yuborish»ni qayta bosing.";
     foot.innerHTML = bulk.running ? '<span class="hint">Yuborilmoqda…</span>'
       : done === list.length && list.length ? '<span class="spacer"></span><button type="button" class="btn btn-primary" data-close>Tayyor</button>'
       : '<span class="spacer"></span><button type="button" class="btn btn-ghost" data-close>Bekor qilish</button><button type="button" class="btn btn-primary" id="bk-go"'+(list.length ? "" : " disabled")+'>Hammasiga yuborish ('+(list.length - done)+')</button>';

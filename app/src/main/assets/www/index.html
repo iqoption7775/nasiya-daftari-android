@@ -27,9 +27,10 @@
 .install-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:14px;background:var(--surface);border:1px solid var(--rule);font-size:13.5px;color:var(--ink-2)}
 .install-bar p{flex:1 1 220px;min-width:0}
 .install-bar b{color:var(--ink)}
-.smsbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:14px;background:var(--accent);color:var(--accent-ink)}
+.smsbar{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;padding:10px 12px;border-radius:14px;background:var(--accent);color:var(--accent-ink)}
 .smsbar .ico{color:var(--accent-ink)}
-.smsbar p{flex:1 1 200px;min-width:0;display:grid;gap:1px}
+@media (max-width:359px){.smsbar{flex-wrap:wrap}}
+.smsbar p{flex:1 1 0;min-width:0;display:grid;gap:1px}
 .smsbar p b{font-size:15px}
 .smsbar p span{font-size:13px;opacity:.85}
 .smsbar .btn{background:var(--accent-ink);color:var(--accent);border-color:transparent}
@@ -96,7 +97,6 @@
 
   <section class="sheet" aria-label="Umumiy holat">
     <div class="sheet-ruled">
-      <p class="sheet-date" id="today-label">&nbsp;</p>
       <p class="sheet-label">Umumiy nasiya</p>
       <p class="sheet-total" id="total"><span class="n">—</span></p>
       <p class="sheet-extra" id="total-extra">&nbsp;</p>
@@ -145,6 +145,17 @@
           <label><input type="radio" name="cur" id="cur-usd" value="USD"><span>$</span></label>
         </fieldset>
       </div>
+      <div id="due-box" style="display:grid;gap:12px">
+        <label class="field"><span>To‘lash sanasi *</span><input id="f-due" type="date"></label>
+        <div class="chips" id="due-chips" aria-label="To‘lash sanasini tez tanlash">
+          <button type="button" data-plus="7d">+7 kun</button>
+          <button type="button" data-plus="1m">+1 oy</button>
+          <button type="button" data-plus="3m">+3 oy</button>
+        </div>
+      </div>
+      <details class="more" id="f-more">
+        <summary>Qo‘shimcha: izoh, bo‘lib to‘lash</summary>
+        <div class="more-body">
       <label class="field"><span>Nima uchun (SMS’da ko‘rinadi)</span><input id="f-note" autocomplete="off" maxlength="60" placeholder="Masalan: balon, telefon, muzlatkich"></label>
       <label class="field"><span>Berilgan sana</span><input id="f-given" type="date"></label>
       <label class="switch">
@@ -159,16 +170,8 @@
         <label class="field"><span>Birinchi to‘lov sanasi</span><input id="f-first" type="date"></label>
         <div class="panel" id="plan-preview"></div>
       </div>
-      <div id="due-box" style="display:grid;gap:12px">
-        <label class="field"><span>To‘lash sanasi *</span><input id="f-due" type="date"></label>
-        <div class="chips" id="due-chips" aria-label="To‘lash sanasini tez tanlash">
-          <button type="button" data-plus="7d">+7 kun</button>
-          <button type="button" data-plus="15d">+15 kun</button>
-          <button type="button" data-plus="1m">+1 oy</button>
-          <button type="button" data-plus="2m">+2 oy</button>
-          <button type="button" data-plus="3m">+3 oy</button>
         </div>
-      </div>
+      </details>
       <p class="err" id="f-err" hidden></p>
     </div>
     <div class="dlg-foot">
